@@ -1,5 +1,6 @@
-import sys
 import openai
+import requests
+import base64
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 import os
@@ -20,12 +21,8 @@ def completion(my_message):
     )
 
 def get_img(my_prompt):
-    request = openai.Image.create(
-        prompt=my_prompt,
-        n=1,
-        size="256x256"
-    )
-    return request["data"][0]["url"]
+    response = requests.post(os.getenv("API_URL_HF"), headers={"Authorization": f"{os.getenv('TOKEN_HF')}"}, json=my_prompt)
+    return base64.b64encode(response.content)
 
 # API Endpoints
 @app.route("/")
@@ -39,11 +36,6 @@ def get_message():
         message = data['message']  # Obtener el valor del parámetro 'message'
         response = completion(message)
         return {
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': os.getenv("ALLOWED_ORIGINS"),
-                'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-            },
             'message': response
         }  # Devolver el mismo mensaje en formato JSON
     else:
@@ -54,15 +46,8 @@ def get_image():
     data = request.get_json()  # Obtener datos del cuerpo de la solicitud POST
     if(data["key"] == api_key):
         message = data['message']  # Obtener el valor del parámetro 'message'
-        response = get_img(message)
-        return {
-            'headers': {
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Origin': os.getenv("ALLOWED_ORIGINS"),
-                'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-            },
-            'message': response
-        }  # Devolver el mismo mensaje en formato JSON
+        response = get_img({"inputs": message})
+        return { 'message': response }  # Devolver el mismo mensaje en formato JSON
     else:
         return {'message': "Acceso Denegado"}
 
